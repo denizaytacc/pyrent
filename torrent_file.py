@@ -9,9 +9,22 @@ from random import randint
 import bcoding
 from Udp import UdpConnection, UdpAnnounce
 from peer import PeerManager
+import logging
+
+logging.basicConfig(
+    filename = "torrent_log.log",
+    level = logging.DEBUG,
+    format='%(asctime)s - %(message)s', 
+    datefmt='%d-%b-%y %H:%M:%S',
+)
+logging.getLogger('asyncio').setLevel(logging.WARNING)
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+logging.getLogger('').addHandler(console)
 
 class Torrent(object):
     def __init__(self, path_to_torrent):
+        logging.info(f"Opened {path_to_torrent}")
         self.torrent_file, self.torrent_content = self.open_torrent_file(path_to_torrent)
         self.left = 0
         self.files = []
@@ -64,9 +77,11 @@ class Torrent(object):
         for t in self.trackers:
             tracker = "".join(t) # Converting list -> str
             connection = self.handle_udp(tracker)
-        print("Connected to the all trackers!")
-        print(self.peers)
-        print(len(self.peers), "possible peers found")
+        # print(self.peers)
+        if(len(self.peers)) > 0:
+            logging.info(f"{len(self.peers)} peers were found.")
+        else:
+            logging.error("No peers were found")
         self.peer_manager = PeerManager(self.handshake_message, self.peers)
 
 
@@ -78,15 +93,13 @@ class Torrent(object):
         Check whether the action is connect.
         Store the connection ID for future use.
         """  
-              
         message = self.UdpConnection.return_buffer()
         while True:
             data = self.send_message(tracker, message)
             if len(data) >= 16 and self.UdpConnection.transaction_id == data[4:8]:
-                print("UDPConnect was successful!")
                 break
             else:
-                print("UDPConnect wasn't successful, trying again.")
+                logging.warning("UDPConnect wasn't successful, trying againn.")
         self.connection_id = data[8:]
         self.UdpAnnounce = UdpAnnounce(self.connection_id, self.info_hash, self.peer_id, self.left)
         self.send_announce(tracker, self.UdpAnnounce)
@@ -127,7 +140,6 @@ class Torrent(object):
         data = self.send_message(tracker, message)
         
         if len(data) >= 20 and announce.transaction_id == data[4:8] and data[:4] == b'\x00\x00\x00\x01':
-            print("Announce was successful!")
             action_ = unpack('>l', data[:4])
             transaction_id_ = unpack('>l', data[4:8])
             interval_ = unpack('>l', data[8:12])
@@ -142,7 +154,7 @@ class Torrent(object):
             # print("seeders: ", seeders_)
             
         else:
-            print("Couldn't send the announce")
+            logging.debug("Couldn't send the announce")
 
         
     def handle_addresses(self, data):
@@ -156,12 +168,8 @@ class Torrent(object):
             port = raw_port[1] + raw_port[0] * 256
             addresses.append([ip, port])
             #print("ip: ", ip, "port: ", port)
-            #peer_connection = PeerConnection(ip, port, self.info_hash, self.peer_id)
             if [ip, port] not in self.peers:
                 self.peers.append([ip, port])
-        #print(addresses)
-
-
 
 Torrent_ = Torrent("torrent_example.torrent")
 
