@@ -7,7 +7,7 @@ import hashlib
 from struct import pack, unpack
 from random import randint
 import bcoding
-from Udp import UdpConnection, UdpAnnounce
+from udp import UdpConnection, UdpAnnounce
 from peer import PeerManager
 import logging
 

@@ -2,6 +2,8 @@ import socket
 from struct import pack, unpack
 from random import randint
 
+# Changed file name
+
 class UdpConnection(object):
     """
     Offset  Size            Name            Value
@@ -56,18 +58,6 @@ class UdpAnnounce(object):
         self.key = pack('>l', randint(0, 1000))
         self.num_want = pack('>l', -1)
         self.port = pack(">h", 6881)
-        # self.action = data_to_bytes(4, 1)
-        # self.transaction_id = data_to_bytes(4, random.randint(0, 1000))
-        # self.info_hash = info_hash
-        # self.peer_id = peer_id
-        # self.downloaded = data_to_bytes(8, 0)
-        # self.left = data_to_bytes(8, left)
-        # self.uploaded = data_to_bytes(8, 0)
-        # self.event = data_to_bytes(4, 0)
-        # self.ip_address = data_to_bytes(4, 0)
-        # self.key = data_to_bytes(4, random.randint(0, 1000))
-        # self.num_want = data_to_bytes(4, 30)
-        # self.port = data_to_bytes(2, 6881)
 
     def return_buffer(self):
         return (self.connection_id + self.action + self.transaction_id + self.info_hash + self.peer_id + self.downloaded +
