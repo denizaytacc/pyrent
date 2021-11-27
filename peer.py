@@ -4,6 +4,8 @@ from message import Message, MessageParser
 import socket
 import logging
 
+# Is this will work?
+
 logging.basicConfig(
     filename = "torrent_log.log",
     level = logging.DEBUG,
