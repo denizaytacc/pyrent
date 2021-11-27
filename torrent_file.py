@@ -8,8 +8,10 @@ from struct import pack, unpack
 from random import randint
 import bcoding
 from udp import UdpConnection, UdpAnnounce
-from peer import PeerManager
+from peer_manager import PeerManager
 import logging
+
+
 
 logging.basicConfig(
     filename = "torrent_log.log",
@@ -17,6 +19,7 @@ logging.basicConfig(
     format='%(asctime)s - %(message)s', 
     datefmt='%d-%b-%y %H:%M:%S',
 )
+
 logging.getLogger('asyncio').setLevel(logging.WARNING)
 console = logging.StreamHandler()
 console.setLevel(logging.INFO)
@@ -77,7 +80,6 @@ class Torrent(object):
         for t in self.trackers:
             tracker = "".join(t) # Converting list -> str
             connection = self.handle_udp(tracker)
-        # print(self.peers)
         if(len(self.peers)) > 0:
             logging.info(f"{len(self.peers)} peers were found.")
         else:

@@ -1,33 +1,61 @@
 import asyncio
-from send_message import send_message
 from struct import unpack
 from message import Message, MessageParser
-class PeerManager(object):
-    def __init__(self, handshake_message, peer_list = []):
-        self.message_parser = MessageParser()
-        self.peers = peer_list
-        self.peer_status = []
-        self.handshake_message = handshake_message
-        self.find_seeders()
-        self.send_interested()
+import socket
+import logging
+
+logging.basicConfig(
+    filename = "torrent_log.log",
+    level = logging.DEBUG,
+    format='%(asctime)s - %(message)s', 
+    datefmt='%d-%b-%y %H:%M:%S',
+)
+
+
+class Peer(object):
+    def __init__(self, ip, port):
+        self.ip = ip
+        self.port = port
+        self.writer = None
+        self.reader = None
+        self.choked = True
+        self.interested = False
+        self.connected = False
+        self.pieces = {}
+        self.loop = asyncio.get_event_loop()
+
+    async def send_message(self, message):
+        if self.reader == None:
+            try:
+                self.reader, self.writer = await asyncio.wait_for(asyncio.open_connection(self.ip, self.port), 3)
+                logging.info(f"Successfully connected to {self.ip}:{self.port}")
+                self.connected = True
+            except:
+                logging.error(f"Error while connecting to the {self.ip}:{self.port}")
+                
+        if self.connected == True:
+            try:
+                print(f"send {message} to {self.ip} {self.port}")
+                self.writer.write(message)
+                await self.writer.drain()
+                buffer = b''
+                buffer = await self.reader.read(4096)
+                tries = 1
+                while len(buffer) < 68 and tries < 10:
+                    tries += 1
+                    buffer = await self.reader.read(4096)
+                print(buffer)
+                self.parse_handshake(buffer)
+
+            except Exception as e:
+                print(e)
+
+    async def close(self):
+        logging.info(f"Closed the connection with {self.ip} {self.port}")
+        print('Closed the connection')
+        self.writer.close()
+        await writer.wait_closed()
         
-    def add_peer(self, peer):
-        self.peers.append(peer)
-    
-    def find_seeders(self):
-        for peer in self.peers:
-            data = asyncio.run(send_message(peer[0], peer[1], self.handshake_message))
-            print("data -> ", data)
-            r2 = self.parse_handshake(data)
-            if data:
-                self.peer_status.append({"ip": peer[0], "port": peer[1], "bitfield": r2})
-        print(self.peer_status)
-
-    def send_interested(self):
-        for peer in self.peer_status:
-            data = asyncio.run(send_message(peer["ip"], peer["port"], Message.Interested()))
-            print("data -> ", data)
-
     def parse_handshake(self, data):
         if data:
             received_handshake = data[:68]
@@ -37,7 +65,7 @@ class PeerManager(object):
                 print("Handshake confirmed!")
                 handshake = data[:68]
                 if len(data) > 68:
-                    bitfield = self.message_parser.parse_bitfield(data[68:])
-                    return bitfield
+                    bitfield = MessageParser.parse_bitfield(data[68:])
+                    self.pieces = bitfield
         else:
             print("Handshake not confirmed")
