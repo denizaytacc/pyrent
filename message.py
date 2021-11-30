@@ -1,4 +1,4 @@
-from struct import pack, unpack
+from struct import pack
 
 class Message(object):
     @staticmethod
@@ -42,40 +42,3 @@ class Message(object):
     def Port(listen_port):
         return pack(">IBI", 3, 9, listen_port) 
 
-class MessageParser(object):
-    def __init__(self):
-        self.Messages = {
-        0: "Choke",
-        1: "Unchoke",
-        2: "Interested",
-        3: "NotInterested",
-        4: "Have",
-        5: "BitField",
-        6: "Request",
-        7: "Piece",
-        8: "Cancel",
-        9: "Port"
-        }
-
-    @staticmethod
-    def parse_message(self, message):
-        message_length_ = int.from_bytes(message[:4], byteorder='big')
-        id_ = int.from_bytes(message[4:5], byteorder='big')
-        message_name = self.Messages[id_]   
-        if message_name == "BitField":
-            parse_bitfield(message)
-            
-    @staticmethod
-    def parse_bitfield(message):
-        payload_length = int.from_bytes(message[:4], byteorder='big')
-        bitfield_length = payload_length - 1
-        print("This is complete a bitfield message and the length of it is")
-        try:
-            raw_bitfield, = unpack(">{}s".format(bitfield_length), message[5:5 + bitfield_length])
-            bitfield = bin(int.from_bytes(raw_bitfield, byteorder="big")).strip('0b')
-            
-        except:
-            print("The client send an incomplete bit field message")
-            raw_bitfield, = unpack(">{}s".format(len(message) - 5), message[5:])
-            bitfield = bin(int.from_bytes(raw_bitfield, byteorder="big")).strip('0b')
-        return bitfield 
