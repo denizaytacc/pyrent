@@ -4,6 +4,7 @@ from message import Message
 import socket
 import logging
 
+BLOCK_SIZE = 2 ** 14
 
 logging.basicConfig(
     filename = "torrent_log.log",
@@ -11,7 +12,6 @@ logging.basicConfig(
     format='%(asctime)s - %(message)s', 
     datefmt='%d-%b-%y %H:%M:%S',
 )
-
 
 class Peer(object):
     def __init__(self, ip, port):
@@ -23,11 +23,11 @@ class Peer(object):
         self.interested = False
         self.connected = False
         self.handshaken = False
-        self.pieces = {}
+        self.pieces = dict()
 
     async def close_connection(self):
-        logging.info(f"Closed the connection with {self.ip} {self.port}")
-        print('Closed the connection')
+        logging.info(f"closed the connection with {self.ip} {self.port}")
+        print('closed the connection')
         self.writer.close()
         await writer.wait_closed()
 
@@ -38,7 +38,7 @@ class Peer(object):
             seeder_status = False
             if len(received_handshake) == 68 and b'BitTorrent protocol' in received_handshake:
                 r2 = None
-                print("Handshake confirmed!")
+                print("handshake confirmed!")
                 self.handshaken = True
                 handshake = data[:68]
                 if len(data) > 68:
@@ -48,11 +48,11 @@ class Peer(object):
     async def send_message(self, message):
         if self.connected == False:
             try:
-                self.reader, self.writer = await asyncio.wait_for(asyncio.open_connection(self.ip, self.port), 1)
-                logging.info(f"Successfully connected to {self.ip}:{self.port}")
+                self.reader, self.writer = await asyncio.wait_for(asyncio.open_connection(self.ip, self.port), 10)
+                logging.info(f"successfully connected to {self.ip}:{self.port}")
                 self.connected = True
             except:
-                logging.error(f"Error while connecting to the {self.ip}:{self.port}")
+                logging.error(f"error while connecting to the {self.ip}:{self.port}")
         if self.connected:
             try:
                 #print(f"send {message} to {self.ip} {self.port}")
@@ -63,7 +63,7 @@ class Peer(object):
                 tries = 1
                 while len(buffer) < 68 and tries < 10:
                     tries += 1
-                    buffer = await asyncio.wait_for(self.reader.read(4096), 10)
+                    buffer = await asyncio.wait_for(self.reader.read(BLOCK_SIZE), 10)
                 #print(buffer)
                 if b"BitTorrent protocol" not in message: # means it wasn't a handshake and should be parsed
                     self.parse_message(buffer)

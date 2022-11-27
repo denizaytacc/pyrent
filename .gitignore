@@ -1,4 +1,3 @@
-torrent_example.torrent
+*.torrent
 __pycache__
-info.txt
 torrent_log.log

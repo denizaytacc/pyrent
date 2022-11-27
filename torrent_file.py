@@ -27,29 +27,25 @@ logging.getLogger('').addHandler(console)
 
 class Torrent(object):
     def __init__(self, path_to_torrent):
-        logging.info(f"Opened {path_to_torrent}")
-        self.torrent_file, self.torrent_content = self.open_torrent_file(path_to_torrent)
+        self.torrent_content = self.open_torrent_file(path_to_torrent)
         self.left = 0
-        self.files = []
-        self.trackers = self.torrent_content['announce-list']
-        self.trackers = [tracker for tracker in self.trackers if tracker[0].startswith('udp')]
-        self.info_hash = self.get_info_hash()
+        self.files = list()
+        self.init_files()
+        self.peers = list()
         self.peer_id = self.get_peer_id()
-        self.UdpConnection = UdpConnection()
+        self.info_hash = self.get_info_hash()
+        self.handshake_message = self.get_handshake()
         self.UdpAnnounce = None
         self.connection_id = None
         self.peer_manager = None
-        self.peers = []
-        self.handshake_message = self.get_handshake()
-        self.init_files()
+        self.UdpConnection = UdpConnection()
         self.get_peers()
 
     def open_torrent_file(self, path_to_torrent):
-        t_file = open(path_to_torrent, "rb")
-        torrent_file = t_file.read()
-        torrent_content = bcoding.bdecode(torrent_file)
-        t_file.close()
-        return torrent_file, torrent_content
+        logging.info(f"opened {path_to_torrent}")
+        with open(path_to_torrent, "rb") as f:
+            torrent_content = bcoding.bdecode(f.read())
+        return torrent_content
 
     def get_info_hash(self):
         raw_info_hash = bcoding.bencode(self.torrent_content['info'])
@@ -77,14 +73,18 @@ class Torrent(object):
             self.left += self.torrent_content['info']['length']
 
     def get_peers(self):
-        for t in self.trackers:
+        raw_trackers = self.torrent_content['announce-list']
+        trackers = [tracker for tracker in raw_trackers if tracker[0].startswith('udp')]
+        for t in trackers:
             tracker = "".join(t) # Converting list -> str
-            connection = self.handle_udp(tracker)
+            success = self.handle_udp(tracker)
+            if success:
+                break
         if(len(self.peers)) > 0:
             logging.info(f"{len(self.peers)} peers were found.")
         else:
-            logging.error("No peers were found")
-        self.peer_manager = PeerManager(self.handshake_message, self.peers)
+            logging.error("no peers were found")
+        self.peer_manager = PeerManager(self.handshake_message, self.torrent_content['info']['pieces'], self.peers)
 
 
     def handle_udp(self, tracker):
@@ -96,40 +96,44 @@ class Torrent(object):
         Store the connection ID for future use.
         """  
         message = self.UdpConnection.return_buffer()
-        while True:
+        success = False
+        tries = 0
+        while tries < 5:
             data = self.send_message(tracker, message)
-            if len(data) >= 16 and self.UdpConnection.transaction_id == data[4:8]:
-                break
+            if data:
+                if len(data) >= 16 and self.UdpConnection.transaction_id == data[4:8]:
+                    self.connection_id = data[8:]
+                    self.UdpAnnounce = UdpAnnounce(self.connection_id, self.info_hash, self.peer_id, self.left)
+                    self.send_announce(tracker, self.UdpAnnounce)
+                    success = True
             else:
-                logging.warning("UDPConnect wasn't successful, trying againn.")
-        self.connection_id = data[8:]
-        self.UdpAnnounce = UdpAnnounce(self.connection_id, self.info_hash, self.peer_id, self.left)
-        self.send_announce(tracker, self.UdpAnnounce)
-
-
-    
+                logging.warning("UDPConnect wasn't successful, trying again.")
+            tries += 1
+        return success
     def send_message(self, tracker, message):
         """
         Send message over UDP protocol, given a tracker address and the message to deliver
         """
-        parsed = urlparse(tracker)
-        ip, port = socket.gethostbyname(parsed.hostname), parsed.port
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.settimeout(5)
-        sock.sendto(message, (ip, port))
-        data = b''
-        while True:
-            try:
-                buffer = sock.recv(4096)
-                if not buffer:
-                    break
+        try:
+            parsed = urlparse(tracker)
+            ip, port = socket.gethostbyname(parsed.hostname), parsed.port
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.settimeout(5)
+            sock.sendto(message, (ip, port))
+            data = b''
+            while True:
+                try:
+                    buffer = sock.recv(4096)
+                    if not buffer:
+                        break
 
-                data += buffer
-            except:
-                break 
-        return data
-         
+                    data += buffer
+                except:
+                    break 
+            return data
+        except Exception as e:
+            print("error", e)
     def send_announce(self, tracker, announce):
         """
         Receive the packet.
@@ -148,12 +152,6 @@ class Torrent(object):
             leechers_ = unpack('>l', data[12:16])
             seeders_ = unpack('>l', data[16:20])
             self.handle_addresses(data[20:])
-            # print("*************************")
-            # print("action: ", action_)
-            # print("transaction_id: ", transaction_id_)
-            # print("interval: ", interval_)
-            # print("leechers: ", leechers_)
-            # print("seeders: ", seeders_)
             
         else:
             logging.debug("Couldn't send the announce")
@@ -169,9 +167,9 @@ class Torrent(object):
             raw_port = data[i + 4:i + 6]
             port = raw_port[1] + raw_port[0] * 256
             addresses.append([ip, port])
-            #print("ip: ", ip, "port: ", port)
             if [ip, port] not in self.peers:
                 self.peers.append([ip, port])
 
-Torrent_ = Torrent("torrent_example.torrent")
+if __name__ == "__main__":
+    Torrent_ = Torrent("torrent_example.torrent")
 
