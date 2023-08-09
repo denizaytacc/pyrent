@@ -25,11 +25,11 @@ class Peer(object):
         self.handshaken = False
         self.pieces = dict()
 
+
     async def close_connection(self):
-        logging.info(f"closed the connection with {self.ip} {self.port}")
-        print('closed the connection')
-        self.writer.close()
-        await writer.wait_closed()
+            logging.info(f"closed the connection with {self.ip} {self.port}")
+            self.writer.close()
+            await writer.wait_closed()
 
     async def send_handshake(self, message):
         data = await self.send_message(message)
@@ -38,12 +38,16 @@ class Peer(object):
             seeder_status = False
             if len(received_handshake) == 68 and b'BitTorrent protocol' in received_handshake:
                 r2 = None
-                print("handshake confirmed!")
                 self.handshaken = True
                 handshake = data[:68]
                 if len(data) > 68:
                     bitfield = self.parse_message(data[68:])
                     self.pieces = bitfield
+                    print("pc", self.pieces)
+            else:
+                self.connected = False
+        else:
+            logging.info(f"Couldn't handshake with peer {self.ip} {self.port}")
 
     async def send_message(self, message):
         if self.connected == False:
@@ -73,7 +77,7 @@ class Peer(object):
                 print(e)
 
     def parse_message(self, message):
-        print("received", message)
+        #print("received", message)
         message_length_ = int.from_bytes(message[:4], byteorder='big')
         id_ = int.from_bytes(message[4:5], byteorder='big')
         if id_ == 1:
@@ -82,7 +86,10 @@ class Peer(object):
 
         if id_ == 5:
             print("Parsing bitfield")
-            self.parse_bitfield(message)
+            return self.parse_bitfield(message)
+
+        
+
 
         if(len(message) - message_length_ > 0):
             self.parse_message(message[4 + message_length_:])    
@@ -96,4 +103,4 @@ class Peer(object):
         except:
             raw_bitfield, = unpack(">{}s".format(len(message) - 5), message[5:])
             bitfield = bin(int.from_bytes(raw_bitfield, byteorder="big")).strip('0b')
-        print(bitfield) 
+        return bitfield
