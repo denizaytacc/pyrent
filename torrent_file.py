@@ -11,6 +11,8 @@ from manager import Manager
 import logging
 import asyncio
 import random
+from file_saver import FileSaver
+
 
 logging.basicConfig(
     filename = "torrent_log.log",
@@ -110,9 +112,17 @@ class Torrent(object):
         """
         self.peers = bcoding.bdecode(response.text)["peers"]
 
-if __name__ == "__main__":
+async def start_download():
+    queue = asyncio.Queue()
     torrent_instance = Torrent("torrent_example.torrent")
     torrent_instance.get_peers()
-    manager_instance = Manager(torrent_instance)
-    asyncio.run(manager_instance.start())
+    manager_instance = Manager(torrent_instance, queue)
+    consumer = FileSaver(torrent_instance, queue)
+    await manager_instance.start()
+    await queue.join()  # waits for all tasks to finish
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(start_download())
+    loop.close()
 

@@ -4,7 +4,7 @@ from message import Message
 import socket
 import logging
 
-BLOCK_SIZE = 2 ** 14
+BLOCK_SIZE = 2 ** 14 # 16,384 KB
 
 logging.basicConfig(
     filename = "torrent_log.log",
@@ -40,14 +40,17 @@ class Peer(object):
                 r2 = None
                 self.handshaken = True
                 handshake = data[:68]
+                logging.info(f"handshake with {self.ip}:{self.port} is successful")
+
                 if len(data) > 68:
                     bitfield = self.parse_message(data[68:])
                     self.pieces = bitfield
                     print("pc", self.pieces)
             else:
+                logging.info(f"peer {self.ip} {self.port} sent invalid handshake")
                 self.connected = False
         else:
-            logging.info(f"Couldn't handshake with peer {self.ip} {self.port}")
+            logging.info(f"peer didn't accept the handshake {self.ip} {self.port}")
 
     async def send_message(self, message):
         if self.connected == False:
