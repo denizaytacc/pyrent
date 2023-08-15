@@ -1,5 +1,5 @@
 import asyncio
-
+import utils
 
 class FileSaver(object):
     def __init__(self, torrent, queue):
@@ -20,7 +20,7 @@ class FileSaver(object):
                 print("Processing: ", piece)
                 self.file.seek(piece.offset)
                 self.f.write(piece.data)
-
+            LOGGER.debug(f"Saved piece {piece.piece_index} to the disk")
             self.pieces_to_save.task_done()
             
         self.file.close()

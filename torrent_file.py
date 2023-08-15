@@ -7,24 +7,11 @@ import hashlib
 from struct import pack, unpack
 from random import randint
 import bcoding
-from manager import Manager
-import logging
 import asyncio
 import random
+from utils import LOGGER
+from manager import Manager
 from file_saver import FileSaver
-
-
-logging.basicConfig(
-    filename = "torrent_log.log",
-    level = logging.DEBUG,
-    format='%(asctime)s - %(message)s', 
-    datefmt='%d-%b-%y %H:%M:%S',
-)
-
-logging.getLogger('asyncio').setLevel(logging.WARNING)
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-logging.getLogger('').addHandler(console)
 
 class Torrent(object):
     def __init__(self, path_to_torrent):
@@ -41,17 +28,14 @@ class Torrent(object):
         self.peer_manager = None
 
     def open_torrent_file(self, path_to_torrent):
-        logging.info(f"opened {path_to_torrent}")
+        LOGGER.debug(f"opened {path_to_torrent}")
         with open(path_to_torrent, "rb") as f:
             torrent_content = bcoding.bdecode(f.read())
         return torrent_content
 
     def get_peer_id(self):
-        # peer_id = bytes(random.randint(0, 255) for _ in range(20))
-        # print("peer id is", peer_id)
-        # return peer_id
         peer_id = '-PY0001-' + ''.join([str(randint(0, 9)) for _ in range(12)])
-        print("peer id is", peer_id)
+        LOGGER.debug(f"generated peer id is {peer_id}")
         return peer_id.encode()
 
     def get_info_hash(self):
@@ -65,8 +49,6 @@ class Torrent(object):
 
     def init_files(self):
         folder_name = self.torrent_content['info']['name']
-        if not os.path.exists(folder_name):
-            os.mkdir(f"{folder_name}")
         try:
             for f in self.torrent_content['info']['files']:
                 self.files.append(f['path'])
@@ -84,9 +66,9 @@ class Torrent(object):
         self.handle_addresses(response)
         #
         if(len(self.peers)) > 0:
-            logging.info(f"{len(self.peers)} peers were found.")
+            LOGGER.info(f"{len(self.peers)} peers were found.")
         else:
-            logging.error("no peers were found")
+            LOGGER.error("no peers were found")
             
     def send_announce(self, tracker):
         # port might be not neccesary

@@ -1,17 +1,9 @@
 import asyncio
 from struct import unpack
-from message import Message
 import socket
-import logging
+from utils import BLOCK_SIZE
+from message import Message
 
-BLOCK_SIZE = 2 ** 14 # 16,384 KB
-
-logging.basicConfig(
-    filename = "torrent_log.log",
-    level = logging.DEBUG,
-    format='%(asctime)s - %(message)s', 
-    datefmt='%d-%b-%y %H:%M:%S',
-)
 
 class Peer(object):
     def __init__(self, ip, port):
@@ -27,7 +19,7 @@ class Peer(object):
 
 
     async def close_connection(self):
-            logging.info(f"closed the connection with {self.ip} {self.port}")
+            LOGGER.debug(f"closed the connection with {self.ip} {self.port}")
             self.writer.close()
             await writer.wait_closed()
 
@@ -40,26 +32,26 @@ class Peer(object):
                 r2 = None
                 self.handshaken = True
                 handshake = data[:68]
-                logging.info(f"handshake with {self.ip}:{self.port} is successful")
+                LOGGER.debug(f"handshake with {self.ip}:{self.port} is successful")
 
                 if len(data) > 68:
                     bitfield = self.parse_message(data[68:])
                     self.pieces = bitfield
                     print("pc", self.pieces)
             else:
-                logging.info(f"peer {self.ip} {self.port} sent invalid handshake")
+                LOGGER.error(f"peer {self.ip} {self.port} sent invalid handshake")
                 self.connected = False
         else:
-            logging.info(f"peer didn't accept the handshake {self.ip} {self.port}")
+            LOGGER.debug(f"peer didn't accept the handshake {self.ip} {self.port}")
 
     async def send_message(self, message):
         if self.connected == False:
             try:
                 self.reader, self.writer = await asyncio.wait_for(asyncio.open_connection(self.ip, self.port), 10)
-                logging.info(f"successfully connected to {self.ip}:{self.port}")
+                LOGGER.debug(f"successfully connected to {self.ip}:{self.port}")
                 self.connected = True
             except:
-                logging.error(f"error while connecting to the {self.ip}:{self.port}")
+                LOGGER.info(f"error while connecting to the {self.ip}:{self.port}")
         if self.connected:
             try:
                 #print(f"send {message} to {self.ip} {self.port}")
