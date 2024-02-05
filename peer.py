@@ -1,12 +1,12 @@
 import asyncio
 from struct import unpack
 import socket
-from utils import BLOCK_SIZE
+from utils import BLOCK_SIZE, LOGGER
 from message import Message
 
 
 class Peer(object):
-    def __init__(self, ip, port):
+    def __init__(self, ip, port, number_of_pieces):
         self.ip = ip
         self.port = port
         self.writer = None
@@ -15,8 +15,7 @@ class Peer(object):
         self.interested = False
         self.connected = False
         self.handshaken = False
-        self.pieces = dict()
-
+        self.pieces = dict((idx, 0) for idx in range(0, number_of_pieces))
 
     async def close_connection(self):
             LOGGER.debug(f"closed the connection with {self.ip} {self.port}")
@@ -36,7 +35,7 @@ class Peer(object):
 
                 if len(data) > 68:
                     bitfield = self.parse_message(data[68:])
-                    self.pieces = bitfield
+                    self.pieces = dict((idx, int(bitfield[idx])) for idx in range(0, len(bitfield)))
                     print("pc", self.pieces)
             else:
                 LOGGER.error(f"peer {self.ip} {self.port} sent invalid handshake")
